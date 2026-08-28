@@ -79,12 +79,17 @@ Validate the complete Python, compiler, and NetCDF setup:
 ./environment/validate-environment.sh
 ```
 
-For later login sessions, activate the configured environment from the
-repository root with:
+For later login sessions in which Conda is already initialized, activate the
+configured environment normally:
 
 ```bash
-source start_da_session.sh
+conda activate amlcs
 ```
+
+`source start_da_session.sh` is an optional convenience for a shell where the
+`conda` function is not yet available. It initializes Conda when necessary and
+then runs `conda activate amlcs`. The Slurm scripts use it so batch shells do
+not depend on a user's interactive-shell initialization.
 
 Do not use the former `speedy_da_env` environment or paths under another
 user's home directory.
