@@ -90,6 +90,25 @@ python amlcs/workflows/jack_report/check_results.py --case 1 --strict
 The reference values are tracked in `reference_metrics.csv`. `--strict` allows
 a 10% relative difference by default; use `--rtol` to change it.
 
+## Plot case 1
+
+Once the EnSF half of case 1 is complete, partial versions of report Figures 1
+and 2 can be made without LETKF:
+
+```bash
+python amlcs/workflows/jack_report/plot_case1.py --ensf-only
+```
+
+After both methods finish, omit `--ensf-only` to generate the full reproduced
+figures. Both modes use the report's cycle-0 NoDA anchor, unweighted horizontal
+RMSE, and mean of independently calculated level RMSE values:
+
+```bash
+python amlcs/workflows/jack_report/plot_case1.py
+```
+
+Plots are written under `runs/jack_report/case1_linear/figures/`.
+
 ## Case-2 normalization audit
 
 The default case-2 LETKF runner reproduces Jack's archived run and Table 7, for
