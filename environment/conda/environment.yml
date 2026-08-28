@@ -1,0 +1,22 @@
+name: amlcs
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.11
+  - numpy=1.26
+  - scipy
+  - pandas
+  - netcdf4
+  - scikit-learn
+  # Basemap 2 requires these compatibility bounds. matplotlib-base is the
+  # appropriate package for the non-interactive Agg backend used on RCC.
+  - matplotlib-base=3.10
+  - packaging=25
+  - pyshp=2.3
+  - seaborn
+  - pytorch
+  - cartopy
+  - imageio
+  - xarray
+  - basemap=2.0

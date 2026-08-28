@@ -1,5 +1,8 @@
 # Running the SPEEDY T21 Data Assimilation Experiment
 
+> The audited Jack/Emmanuella provenance and the reproducible four-case
+> workflow are documented in [`workflows/README.md`](workflows/README.md).
+
 This guide describes the complete workflow for running a T21 data-assimilation experiment using the AMLCS Python framework on an HPC environment. The process involves three main stages:
 
 1. Pre-Processing — generate a "true" reference solution and an initial ensemble of model states.  

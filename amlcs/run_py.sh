@@ -1,9 +1,14 @@
-#!/bin/bash
-export LD_LIBRARY_PATH="/gpfs/home/ea25e/speedy_libs/lib:/gpfs/home/ea25e/.conda/envs/speedy_da_env/lib:${LD_LIBRARY_PATH}"
-export LD_LIBRARY_PATH="/gpfs/home/ea25e/.conda/envs/speedy_da_env/lib:${LD_LIBRARY_PATH}"
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Absolute logs directory
-LOG_DIR="/gpfs/home/ea25e/SPEEDY-f77/logs"
+if [[ "${CONDA_DEFAULT_ENV-}" != amlcs || -z "${CONDA_PREFIX-}" ]]; then
+    echo "Activate the amlcs Conda environment before running this script." >&2
+    exit 1
+fi
+
+repo_root="${ENSF_SPEEDY_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)}"
+LOG_DIR="$repo_root/logs"
+mkdir -p "$LOG_DIR"
 
 # First argument is the script name
 script="$1"
@@ -38,4 +43,4 @@ echo "=========================================="
 } >> "$log"
 
 # Python output goes ONLY to log file
-PYTHONUNBUFFERED=1 /gpfs/home/ea25e/.conda/envs/speedy_da_env/bin/python "$script" "$@" &> "$log"
+PYTHONUNBUFFERED=1 "$CONDA_PREFIX/bin/python" "$script" "$@" &>> "$log"

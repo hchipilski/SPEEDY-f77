@@ -220,9 +220,32 @@ class numerical_model:
               self.perform_forecast(e);
               
       def forecast_ensemble_parallel(self, Nens):
-          pool = mp.Pool(mp.cpu_count())
+          # Respect the scheduler allocation instead of spawning one worker for
+          # every CPU on the node. AMLCS_FORECAST_WORKERS is set explicitly by
+          # the report Slurm jobs; SLURM_CPUS_PER_TASK is a safe fallback.
+          worker_value = os.environ.get(
+              'AMLCS_FORECAST_WORKERS', os.environ.get('SLURM_CPUS_PER_TASK')
+          )
+          if worker_value is not None:
+              try:
+                  workers = int(worker_value)
+              except ValueError as exc:
+                  raise ValueError(
+                      'AMLCS_FORECAST_WORKERS/SLURM_CPUS_PER_TASK must be an integer'
+                  ) from exc
+              if workers < 1:
+                  raise ValueError('forecast worker count must be at least 1')
+          else:
+              try:
+                  workers = len(os.sched_getaffinity(0))
+              except AttributeError:
+                  workers = mp.cpu_count()
+          workers = min(int(Nens), workers)
+          print(f'* Forecast worker pool size = {workers}')
+          pool = mp.Pool(processes=workers)
           results = pool.map(self.perform_forecast, [e for e in range(0, Nens)]);
           pool.close();
+          pool.join();
           #print(results);
       
       def collect_ensemble_members(self):

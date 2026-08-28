@@ -2,7 +2,12 @@
 ####################################################################################
 ####################################################################################
 
+import hashlib
+import json
 import os
+from pathlib import Path
+import shutil
+import subprocess
 import sys
 import numpy as np
 import scipy.sparse as spa
@@ -18,6 +23,38 @@ from sequential_methods import EnKF_MC_obs, sequential_method
 from error_metric import error_metric
 from time_metric import time_metric
             
+
+def _read_bool(value, default=False):
+    """Parse booleans from CSV values without treating ``"False"`` as true."""
+    if value is None or pd.isna(value):
+        return default
+    if isinstance(value, (bool, np.bool_)):
+        return bool(value)
+    normalized = str(value).strip().lower()
+    if normalized in {"true", "1", "yes", "y", "on"}:
+        return True
+    if normalized in {"false", "0", "no", "n", "off"}:
+        return False
+    raise ValueError(f"Cannot interpret {value!r} as a boolean")
+
+
+def _optional_value(df, column, default):
+    if column not in df.columns or pd.isna(df[column].iloc[0]):
+        return default
+    return df[column].iloc[0]
+
+
+def _git_commit():
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
 
 ####################################################################################
 ####################################################################################
@@ -44,7 +81,29 @@ def main():
     obs_plc      = [int(v) for v in plac_obs];
     l_snap       = df_par['list_snapshots'].iloc[0].strip().split(',');
     option_mask  = int(df_par['option_mask'].iloc[0]);
-    
+
+    # These options were present in Jack's driver but were dropped in commit
+    # 0a2f8fe. Without this wiring, case 2 and the derived-wind part of case 3
+    # silently execute with the default linear observation operators.
+    nonlinear_obs = _read_bool(_optional_value(df_par, 'nonlinear_obs', False))
+    scalefact = float(_optional_value(df_par, 'scalefact', 1.0))
+    wind_nonlinear_operator = _read_bool(
+        _optional_value(df_par, 'wind_nonlinear_operator', False)
+    )
+    normalize_nonlinear = _read_bool(
+        _optional_value(df_par, 'normalize_nonlinear', True), default=True
+    )
+    nonlinear_operator_type = str(
+        _optional_value(df_par, 'nonlinear_operator_type', 'arctan')
+    ).strip()
+
+    print(
+        'Observation operators: '
+        f'nonlinear={nonlinear_obs}, scale={scalefact}, '
+        f'wind-derived={wind_nonlinear_operator}, '
+        f'normalize={normalize_nonlinear}, type={nonlinear_operator_type}'
+    )
+
     list_k = [int(v) for v in l_snap];
 
     print(f'plac_obs = {obs_plc}');
@@ -64,24 +123,49 @@ def main():
     data_prep = df_con['folder_prep'].iloc[0];
     code_prep = df_con['code'].iloc[0];
     code_path = df_con['code_path'].iloc[0];
-    par       = df_con['par'].iloc[0].astype(bool);
+    par       = _read_bool(df_con['par'].iloc[0]);
     
     args = [0, obs_steps, 1];
     ini0 = [ini_steps, 0, 1];
     ini0_no_restart = [ini_times, 0, 0];
     #print(df_par['code'])
      
-    method_path = code_path+'_'+method+'_'+str(r)+'_'+str(s)+'_'+str(int(100*infla)) + '_mask_' + str(option_mask);
-    
-    path = '../runs/';
+    method_path = (
+        f'{code_path}_{method}_{r}_{s}_{int(round(100 * infla))}'
+        f'_mask_{option_mask}'
+    )
+
+    path = Path('../runs')
     if not df_par['code'].isnull().values.any():
-       path = df_par['code'].iloc[0]+'/';
-    
+        path = Path(str(df_par['code'].iloc[0]))
 
-    os.system(f'mkdir {path}');
-    os.system(f'mkdir {path}{method_path}');
+    output_dir = path / method_path
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path_method = f'{output_dir}/'
 
-    path_method = f'{path}{method_path}/';
+    input_path = Path(input_file).resolve()
+    input_sha256 = hashlib.sha256(input_path.read_bytes()).hexdigest()
+    shutil.copy2(input_path, output_dir / 'runner.csv')
+    metadata = {
+        'driver': str(Path(__file__).resolve()),
+        'git_commit': _git_commit(),
+        'input_file': str(input_path),
+        'input_sha256': input_sha256,
+        'output_directory': str(output_dir.resolve()),
+        'method': method,
+        'r': r,
+        's': s,
+        'inflation': infla,
+        'option_mask': option_mask,
+        'nonlinear_obs': nonlinear_obs,
+        'scalefact': scalefact,
+        'wind_nonlinear_operator': wind_nonlinear_operator,
+        'normalize_nonlinear': normalize_nonlinear,
+        'nonlinear_operator_type': nonlinear_operator_type,
+    }
+    (output_dir / 'run_metadata.json').write_text(
+        json.dumps(metadata, indent=2) + '\n', encoding='utf-8'
+    )
     
     print('* The method reads {0}'.format(method));
     
@@ -97,7 +181,14 @@ def main():
     plac_obs = df_par['obs_plc'].iloc[0].strip().split(',');
     obs_plc = [int(v) for v in plac_obs];
     #print (obs_plc)
-    ob = observation(err_obs, obs_plc);
+    ob = observation(
+        err_obs,
+        obs_plc,
+        nonlinear_obs=nonlinear_obs,
+        scalefact=scalefact,
+        normalize_nonlinear=normalize_nonlinear,
+        nonlinear_operator_type=nonlinear_operator_type,
+    );
 
     
     #1.1 Numerical model
@@ -114,7 +205,23 @@ def main():
     
     
     #Setting the sequential data assimilation method
-    seq_da = sequential_method(method).get_instance(nm, infla, Nens);
+    wind_err = {}
+    if len(err_obs) > 10:
+        wind_err['WDG1'] = err_obs[10]
+    if len(err_obs) > 11:
+        wind_err['WSG1'] = err_obs[11]
+
+    seq_da = sequential_method(method).get_instance(
+        nm,
+        infla,
+        Nens,
+        nonlinear_obs=nonlinear_obs,
+        scalefact=scalefact,
+        wind_nonlinear_operator=wind_nonlinear_operator,
+        wind_err=wind_err,
+        normalize_nonlinear=normalize_nonlinear,
+        nonlinear_operator_type=nonlinear_operator_type,
+    );
     
     ob.build_observational_network(gs, nm, s=s);
     ob.build_synthetic_observations(nm, rs, M); 
