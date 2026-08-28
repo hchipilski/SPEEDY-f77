@@ -5,7 +5,8 @@
 | Material | Commit | Author | Meaning |
 | --- | --- | --- | --- |
 | Original AMLCS baseline referenced by the repository | `37be4a51e050b984de06681f06517dd33a3f47a7` | jjs21b | Older baseline; not Jack's completed study |
-| Last Jack-authored study state | `2f5b35c4716ba86aea65c5479dc5879c9aba2e98` | Jack Schwartz | Best exact snapshot of Jack's code and development artifacts |
+| Jack source snapshot used for this reconstruction | `2f5b35c4716ba86aea65c5479dc5879c9aba2e98` | Jack Schwartz | Ancestor containing the DA core on which the corrected workflow is based |
+| Later `testing-jack` branch head | `0c8b6ae4aca633005da82d1fcbc83ca6c8a7aa4d` | Jack Schwartz | 15 commits ahead; adds tuning, validation, and plotting artifacts without changing the three DA-core files |
 | Emmanuella submission | `0a2f8fef8d906d6dbd4e3e2fa744b07591733833` | Emmanuella Ababio | Adds `case1`–`case4`, results, and the driver regression |
 
 To inspect exact, read-only working trees without mixing either state into the
@@ -18,9 +19,17 @@ git worktree add ../SPEEDY-f77-emmanuella 0a2f8fef8d906d6dbd4e3e2fa744b075917338
 
 The top-level `original-amlcs` and `testing-jack` entries are not usable source
 copies. They were committed as Git links, but there is no `.gitmodules` file or
-submodule URL. The `testing-jack` link targets object
-`0c8b6ae4aca633005da82d1fcbc83ca6c8a7aa4d`, which is not present in this local
-repository. This explains why both directories appear empty after checkout.
+submodule URL. The `testing-jack` link targets Jack's later branch-head object
+`0c8b6ae4aca633005da82d1fcbc83ca6c8a7aa4d`, which is not carried as an object
+in this repository. This explains why both directories appear empty after
+checkout. The object is available from Jack's separate repository at
+<https://github.com/jjs21b/SPEEDY-f77/tree/testing-jack>.
+
+Comparing the two Jack revisions confirms that `amlcs/amlcs_da.py`,
+`amlcs/observation.py`, and `amlcs/sequential_methods.py` have identical Git
+blob IDs. The 15 later commits therefore do not change the DA core used by the
+four-case reconstruction; they supply additional experimental and
+post-processing evidence.
 
 ## What went wrong in the reproduction
 

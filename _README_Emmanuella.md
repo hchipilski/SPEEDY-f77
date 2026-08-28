@@ -10,6 +10,25 @@ the same 80-member initial ensemble, synthetic truth, NoDA trajectory, 30
 assimilation cycles, two-day forecast interval, and full horizontal observation
 coverage used in the report.
 
+## Source provenance
+
+This reconstruction is based on Jack's source snapshot
+`2f5b35c4716ba86aea65c5479dc5879c9aba2e98` (13 June 2026). Jack's
+`testing-jack` branch subsequently advanced by 15 commits to
+`0c8b6ae4aca633005da82d1fcbc83ca6c8a7aa4d` (20 July 2026), the branch head
+that was handed off at
+<https://github.com/jjs21b/SPEEDY-f77/tree/testing-jack> when this audit was
+performed.
+
+The later commits mainly add tuning summaries, validation utilities, selected
+parameters, and plotting products. The DA-core files `amlcs/amlcs_da.py`,
+`amlcs/observation.py`, and `amlcs/sequential_methods.py` are byte-for-byte
+identical at the two Jack commits. The corrected repository adds workflow and
+metadata handling around that core and restores the required observation
+options where Emmanuella's attempted integration had replaced the driver.
+Thus, use the corrected handoff revision below to run the experiments; use the
+two Jack hashes to document the upstream scientific provenance.
+
 ## 1. Fork and clone the corrected repository
 
 1. Open <https://github.com/hchipilski/SPEEDY-f77> in GitHub.
