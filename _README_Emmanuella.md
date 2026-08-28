@@ -42,6 +42,11 @@ scientific provenance and the archived Table 7 calculation.
 
 ## 1. Fork and clone the corrected repository
 
+The handoff was developed on `debug_ella`, but that branch is now historical.
+Do **not** use `debug_ella` as the starting point for new experiments. The
+finalized handoff, including the multivariate LETKF configurations and tuning
+cautions in this guide, is on `main`.
+
 1. Open <https://github.com/hchipilski/SPEEDY-f77> in GitHub.
 2. Select **Fork**, choose your GitHub account, and create the fork.
 3. Clone your fork on the RCC filesystem. Replace `<github-user>` below with
@@ -54,7 +59,9 @@ git remote add upstream git@github.com:hchipilski/SPEEDY-f77.git
 git remote -v
 ```
 
-Create Emmanuella's working branch from the corrected `main` branch:
+After cloning, create Emmanuella's working branch from the corrected upstream
+`main` branch. This explicitly checks out the finalized handoff even if her
+fork's default branch points somewhere else:
 
 ```bash
 git fetch upstream main
