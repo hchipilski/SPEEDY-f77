@@ -1,8 +1,12 @@
-# Reproducing the four reported cases
+# Continuing the four reported cases
 
-This is the audited reconstruction of the selected experiments in
+This is the audited continuation of the selected experiments in
 `Jacks_defense_report.pdf`. It uses 80 ensemble members, 30 assimilation cycles,
-two model days between observations, and full horizontal coverage (`s=1`).
+two model days between observations, and full horizontal coverage (`s=1`). All
+canonical LETKF runners use multivariate per-level blocks (`option_mask=1`).
+Jack's Table 7 used mixed layouts, so the report's LETKF tuning values are
+starting points for new multivariate tuning rather than exact reproduction
+targets.
 
 | Case | Observations | EnSF | LETKF |
 | --- | --- | --- | --- |
@@ -50,11 +54,11 @@ sbatch slurm_jobs/jack_report_case1_linear.sh
 ```
 
 The job runs the selected EnSF configuration followed by the selected LETKF
-configuration, then checks both outputs against Table 7. They run sequentially
-because the legacy AMLCS driver creates temporary build files in its working
-directory. The job requests 16 forecast workers, 24 GB of memory, and a 48-hour
-wall-time; its scheduler logs are `jack_case1_linear_<jobid>.out` and `.err` in
-the submission directory.
+configuration, then strictly checks EnSF and reports the LETKF difference from
+Table 7. They run sequentially because the legacy AMLCS driver creates
+temporary build files in its working directory. The job requests 16 forecast
+workers, 24 GB of memory, and a 48-hour wall-time; its scheduler logs are
+`jack_case1_linear_<jobid>.out` and `.err` in the submission directory.
 
 Run a single method, or all cases:
 
@@ -84,11 +88,18 @@ and compare it with Table 7:
 
 ```bash
 python amlcs/workflows/jack_report/check_results.py
-python amlcs/workflows/jack_report/check_results.py --case 1 --strict
+python amlcs/workflows/jack_report/check_results.py \
+  --case all --method ensf --strict
+python amlcs/workflows/jack_report/check_results.py \
+  --case all --method letkf
 ```
 
 The reference values are tracked in `reference_metrics.csv`. `--strict` allows
-a 10% relative difference by default; use `--rtol` to change it.
+a 10% relative difference by default; use `--rtol` to change it. Do not use
+strict Table 7 agreement as the acceptance test for LETKF: cases 1 and 4 in
+Jack's production results used `option_mask=2`, while this workflow deliberately
+uses the theoretically more robust multivariate `option_mask=1` in every case.
+The multivariate LETKF radius and inflation values must be retuned.
 
 ## Plot case 1
 
@@ -99,9 +110,11 @@ and 2 can be made without LETKF:
 python amlcs/workflows/jack_report/plot_case1.py --ensf-only
 ```
 
-After both methods finish, omit `--ensf-only` to generate the full reproduced
+After both methods finish, omit `--ensf-only` to generate the full comparison
 figures. Both modes use the report's cycle-0 NoDA anchor, unweighted horizontal
-RMSE, and mean of independently calculated level RMSE values:
+RMSE, and mean of independently calculated level RMSE values. The multivariate
+LETKF curves are not expected to be numerically identical to Jack's original
+case-1 curves:
 
 ```bash
 python amlcs/workflows/jack_report/plot_case1.py

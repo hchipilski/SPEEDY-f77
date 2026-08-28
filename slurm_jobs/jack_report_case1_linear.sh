@@ -32,5 +32,10 @@ export NUMEXPR_NUM_THREADS=1
 python amlcs/workflows/jack_report/preflight.py
 python amlcs/workflows/jack_report/run_cases.py \
     --case 1 --method both --execute --skip-preflight
+# Jack's case-1 Table 7 value came from option_mask=2. The handoff uses the
+# multivariate option_mask=1 LETKF and therefore treats its comparison as
+# informational until the multivariate tuning sweep is complete.
 python amlcs/workflows/jack_report/check_results.py \
-    --case 1 --method both --strict
+    --case 1 --method ensf --strict
+python amlcs/workflows/jack_report/check_results.py \
+    --case 1 --method letkf

@@ -1,14 +1,17 @@
-# Emmanuella handoff: reproducing Jack's four DA experiments
+# Emmanuella handoff: continuing Jack's four DA experiments
 
-This guide starts from a fresh GitHub fork and runs the audited reconstruction
-of the four experiments in `Jacks_defense_report.pdf`. Do not reuse the older
+This guide starts from a fresh GitHub fork and runs the audited continuation of
+the four experiments in `Jacks_defense_report.pdf`. Do not reuse the older
 `case1` through `case4` runner files from commit `0a2f8fe`; the corrected,
 canonical runners are under `amlcs/workflows/jack_report/cases/`.
 
-The workflow runs the selected EnSF and LETKF configuration for each case with
-the same 80-member initial ensemble, synthetic truth, NoDA trajectory, 30
-assimilation cycles, two-day forecast interval, and full horizontal observation
-coverage used in the report.
+The workflow runs the selected EnSF configuration and a consistently
+multivariate LETKF configuration for each case with the same 80-member initial
+ensemble, synthetic truth, NoDA trajectory, 30 assimilation cycles, two-day
+forecast interval, and full horizontal observation coverage used in the
+report. The LETKF localization and inflation values from the report are useful
+starting points, but they are not yet established as optimal for the uniformly
+multivariate implementation used here.
 
 ## Source provenance
 
@@ -23,11 +26,19 @@ performed.
 The later commits mainly add tuning summaries, validation utilities, selected
 parameters, and plotting products. The DA-core files `amlcs/amlcs_da.py`,
 `amlcs/observation.py`, and `amlcs/sequential_methods.py` are byte-for-byte
-identical at the two Jack commits. The corrected repository adds workflow and
-metadata handling around that core and restores the required observation
-options where Emmanuella's attempted integration had replaced the driver.
-Thus, use the corrected handoff revision below to run the experiments; use the
-two Jack hashes to document the upstream scientific provenance.
+identical at the two Jack commits. An audit of the configurations whose RMSE
+values match Table 7 found that Jack's production runs used mixed LETKF block
+layouts: cases 1 and 4 used separate variable-level blocks (`option_mask=2`),
+while cases 2 and 3 used multivariate per-level blocks (`option_mask=1`). This
+conflicts with applying the report's more robust cross-variable LETKF rationale
+consistently to all four experiments.
+
+The corrected repository therefore adds workflow and metadata handling around
+the DA core, restores the required observation options where Emmanuella's
+attempted integration had replaced the driver, and deliberately uses
+`option_mask=1` for every LETKF case. Use the corrected handoff revision below
+for new experiments; use the two Jack hashes to document the upstream
+scientific provenance and the archived Table 7 calculation.
 
 ## 1. Fork and clone the corrected repository
 
@@ -43,17 +54,16 @@ git remote add upstream git@github.com:hchipilski/SPEEDY-f77.git
 git remote -v
 ```
 
-Until a final handoff tag is announced, use the corrected `debug_ella` branch:
+Create Emmanuella's working branch from the corrected `main` branch:
 
 ```bash
-git fetch upstream debug_ella
-git switch --create emmanuella/jack-reproduction upstream/debug_ella
-git merge-base --is-ancestor 8411727 HEAD
+git fetch upstream main
+git switch --create emmanuella/letkf-tuning upstream/main
+git log -1 --oneline
 ```
 
-The last command must exit successfully. Commit `8411727` is the minimum
-handoff revision containing the audited runners and case-1 plotting workflow.
-Once a final tag is provided, create your working branch from that tag instead.
+Record the printed commit in every experiment log or report. If a final
+handoff tag is provided later, create the working branch from that tag instead.
 
 Keep `upstream` pointed at the source repository and `origin` pointed at your
 fork. Make changes only on your own branch, then use a pull request to propose
@@ -143,16 +153,38 @@ The preview must list two commands for each of the four cases and end with
 
 ## 4. Confirm the four experiment definitions
 
-| Case | Observation system | EnSF selection | LETKF selection |
-| --- | --- | --- | --- |
-| 1: all linear | Direct UG1, VG1, TG1, TRG1, PSG1 | inflation 1.00 | radius 3, inflation 1.00 |
-| 2: all arctangent | Arctangent of all five fields | inflation 1.00 | radius 3, inflation 1.00 |
-| 3: WDG/WSG/TPH | WDG1 and WSG1; direct TG1, TRG1, PSG1 | inflation 1.00 | radius 2, inflation 1.15 |
-| 4: pressure only | Direct PSG1 only | inflation 1.00 | radius 2, inflation 1.30 |
+| Case | Observation system | EnSF selection | Initial LETKF tuning | LETKF layout |
+| --- | --- | --- | --- | --- |
+| 1: all linear | Direct UG1, VG1, TG1, TRG1, PSG1 | inflation 1.00 | radius 3, inflation 1.00 | multivariate per level |
+| 2: all arctangent | Arctangent of all five fields | inflation 1.00 | radius 3, inflation 1.00 | multivariate per level |
+| 3: WDG/WSG/TPH | WDG1 and WSG1; direct TG1, TRG1, PSG1 | inflation 1.00 | radius 2, inflation 1.15 | multivariate per level |
+| 4: pressure only | Direct PSG1 only | inflation 1.00 | radius 2, inflation 1.30 | multivariate per level |
 
 EnSF's `r=1` value is only a required folder-name placeholder; the original
 EnSF analysis does not use LETKF localization. Observation spacing `s=1`
 means every eligible horizontal grid point is observed.
+
+For LETKF, `option_mask=1` groups all state variables defined at a given model
+level into the same local analysis block. Observations within the local box can
+therefore update every variable in that level through ensemble-estimated
+cross-covariances. All four canonical LETKF runners, including the three
+remaining cases 2--4, must retain `option_mask=1`. The preflight enforces this.
+
+The radius and inflation entries above reproduce the values selected for the
+report, not a completed tuning result for this unified multivariate layout.
+Changing cases 1 and 4 from Jack's production `option_mask=2` changes the
+analysis and can change the best radius and inflation. Before interpreting the
+LETKF comparison as final, rerun the full tuning grid for each multivariate
+case:
+
+```text
+radius    = 1, 2, 3, 4
+inflation = 1.00, 1.15, 1.30, 1.45, 1.60
+```
+
+Keep tuning outputs separate from the canonical case directories until a new
+setting has been selected and documented. Do not replace a canonical runner
+based on a partial sweep.
 
 ## 5. Submit all four cases on Slurm
 
@@ -221,17 +253,28 @@ another researcher needs the exact output files.
 
 ## 7. Validate the completed experiments
 
-The all-cases Slurm script automatically performs the strict validation after
-all eight runs. It can also be repeated manually:
+The all-cases Slurm script strictly validates EnSF against Table 7 and prints
+an informational LETKF comparison after all eight runs. The same checks can be
+repeated manually:
 
 ```bash
 python amlcs/workflows/jack_report/check_results.py \
-    --case all --method both --strict
+    --case all --method ensf --strict
+python amlcs/workflows/jack_report/check_results.py \
+    --case all --method letkf
 ```
 
 This recomputes the report's unweighted horizontal RMSE, averages independently
 calculated level RMSE values, averages across 30 cycles, and compares the result
 with Table 7. The default strict relative tolerance is 10%.
+
+Do not use `--strict` against Table 7 as the acceptance test for the new LETKF
+runs. Table 7 contains Jack's mixed-layout production results, whereas these
+runners consistently use the multivariate layout. Differences are expected and
+must be reported, not treated as evidence that the workflow failed. Case 1 has
+already completed successfully with `option_mask=1`; its level- and
+cycle-averaged LETKF errors differ from Table 7 by approximately 35--53% across
+the five variables. This is the reason new multivariate tuning is required.
 
 To inspect one case without making differences fatal:
 
@@ -259,6 +302,10 @@ The figures are stored under:
 ```text
 runs/jack_report/case1_linear/figures/
 ```
+
+These figures show the corrected multivariate LETKF result. They are not
+expected to be numerically identical to Jack's original Figures 1 and 2, which
+were generated from the case-1 `option_mask=2` production run.
 
 ## 9. Case-2 normalization ambiguity
 
@@ -290,9 +337,12 @@ That alternative writes under
   historical evidence, not active runners.
 - Make active configuration changes only under
   `amlcs/workflows/jack_report/cases/`.
+- Keep `option_mask=1` in every canonical LETKF runner. Treat a change to the
+  block layout as a new experiment with a distinct output directory.
 - Rerun preflight after every configuration or driver change.
 - Commit source/configuration changes to your branch, push to your fork, and
   open a pull request. Do not include `runs/`, `logs/`, `.out`, or `.err` files.
 
-When reporting a reproduction, record the Git commit, Slurm job ID, runner
-SHA-256 from `run_metadata.json`, and the strict Table 7 comparison output.
+When reporting a run, record the Git commit, Slurm job ID, runner SHA-256 from
+`run_metadata.json`, the strict EnSF comparison, and the informational LETKF
+comparison with Table 7.
